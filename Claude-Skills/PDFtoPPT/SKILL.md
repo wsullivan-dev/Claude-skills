@@ -18,8 +18,6 @@ Claude-Skills/
     SKILL.md
 ```
 
-The `uploads`, `images`, `outputs`, and `templates` folders are all tracked in the repo (via `.gitkeep` files) so they exist as soon as you clone the project—just drop your PDFs into `uploads/` and the `mbr_template.pptx` into `templates/`. The CLI defaults already point to these locations, so you only need to override them if you relocate the directories.
-
 ## Installation
 
 ```bash
