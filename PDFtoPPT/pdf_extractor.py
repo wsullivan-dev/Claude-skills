@@ -60,6 +60,10 @@ def extract_slide_visuals(pdf_path: Path, images_dir: Path) -> Dict[str, SlideVi
                 pdf_path.name,
             )
             detected_pages = _fallback_slide_pages(doc)
+        elif len(detected_pages) < len(TARGET_SLIDE_LABELS):
+            fallback = _fallback_slide_pages(doc)
+            for label, page_index in fallback.items():
+                detected_pages.setdefault(label, page_index)
 
         visuals: Dict[str, SlideVisuals] = {}
         for label, page_index in detected_pages.items():
@@ -141,12 +145,13 @@ def _extract_images_from_page(
 
     image_infos = page.get_images(full=True)
     if not image_infos:
-        LOGGER.warning(
-            "No embedded images found on %s page %d; skipping",
-            pdf_path.name,
-            page_number,
+        return _render_full_page_visual(
+            reason="No embedded images found",
+            page=page,
+            pdf_path=pdf_path,
+            page_number=page_number,
+            images_dir=images_dir,
         )
-        return []
 
     page_area = abs(page.rect.width * page.rect.height) or 1
     extracted: List[Path] = []
@@ -187,7 +192,42 @@ def _extract_images_from_page(
         extracted.append(output_path)
         visual_index += 1
 
-    return extracted
+    if extracted:
+        return extracted
+
+    return _render_full_page_visual(
+        reason="No qualifying visuals met size heuristics",
+        page=page,
+        pdf_path=pdf_path,
+        page_number=page_number,
+        images_dir=images_dir,
+    )
+
+
+def _render_full_page_visual(
+    reason: str,
+    page: fitz.Page,
+    pdf_path: Path,
+    page_number: int,
+    images_dir: Path,
+) -> List[Path]:
+    """Render the entire page when we cannot extract embedded visuals."""
+
+    LOGGER.warning(
+        "%s on %s page %d; rendering full-page fallback",
+        reason,
+        pdf_path.name,
+        page_number,
+    )
+    zoom = DPI / 72  # keep output resolution consistent with DPI
+    matrix = fitz.Matrix(zoom, zoom)
+    pix = page.get_pixmap(matrix=matrix, alpha=False)
+    if pix.width == 0 or pix.height == 0:
+        return []
+    output_name = f"{pdf_path.stem}__p{page_number}__full.png"
+    output_path = images_dir / output_name
+    pix.save(str(output_path))
+    return [output_path]
 
 
 __all__ = ["SlideVisuals", "extract_slide_visuals"]

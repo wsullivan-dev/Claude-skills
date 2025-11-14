@@ -5,7 +5,7 @@ This skill converts Power BI PDF exports into Monthly Business Review (MBR) Powe
 ## Folder Structure
 
 ```
-Claude-Skills/
+Claude-skills/
   PDFtoPPT/
     uploads/        # input Power BI PDFs
     images/         # extracted chart/table images
@@ -21,7 +21,7 @@ Claude-Skills/
 ## Installation
 
 ```bash
-cd Claude-Skills/PDFtoPPT
+cd Claude-skills/PDFtoPPT
 python -m venv .venv
 source .venv/bin/activate  # or .venv\Scripts\activate on Windows
 pip install -r requirements.txt

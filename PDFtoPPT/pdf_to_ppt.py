@@ -9,10 +9,10 @@ from typing import Iterable, List
 from pdf_extractor import extract_slide_visuals
 from ppt_builder import build_mbr_ppt
 
-DEFAULT_UPLOADS = Path("Claude-Skills/PDFtoPPT/uploads")
-DEFAULT_IMAGES = Path("Claude-Skills/PDFtoPPT/images")
-DEFAULT_OUTPUTS = Path("Claude-Skills/PDFtoPPT/outputs")
-DEFAULT_TEMPLATE = Path("Claude-Skills/PDFtoPPT/templates/mbr_template.pptx")
+DEFAULT_UPLOADS = Path("uploads")
+DEFAULT_IMAGES = Path("images")
+DEFAULT_OUTPUTS = Path("outputs")
+DEFAULT_TEMPLATE = Path("templates/mbr_template.pptx")
 
 
 logging.basicConfig(
