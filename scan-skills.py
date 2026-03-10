@@ -8,12 +8,14 @@ Usage:
     python scan-skills.py --org PacerAI      # Scan only PacerAI org
     python scan-skills.py --user wsullivan-dev  # Scan only personal repos
     python scan-skills.py --local            # Scan local ~/Documents/GitHub/ instead of GitHub API
+    python scan-skills.py --local --csv skills-inventory.csv  # Export DataFrame to CSV
 
 Requires: gh CLI authenticated (gh auth login)
 """
 
 import subprocess
 import json
+import re
 import sys
 import os
 import argparse
@@ -257,6 +259,80 @@ def scan_local(base_path: str = None) -> dict:
     return inventory
 
 
+def parse_skill_frontmatter(skill_path: str) -> Dict:
+    """Parse YAML frontmatter from a SKILL.md file to extract name and description."""
+    result = {"name": "", "description": ""}
+    try:
+        with open(skill_path, "r") as f:
+            content = f.read()
+        # Match YAML frontmatter between --- delimiters
+        match = re.match(r"^---\s*\n(.*?)\n---", content, re.DOTALL)
+        if match:
+            frontmatter = match.group(1)
+            for line in frontmatter.split("\n"):
+                if line.startswith("name:"):
+                    result["name"] = line.split(":", 1)[1].strip()
+                elif line.startswith("description:"):
+                    result["description"] = line.split(":", 1)[1].strip()
+    except (IOError, OSError):
+        pass
+    return result
+
+
+def build_skills_dataframe(inventory: dict) -> "pandas.DataFrame":
+    """Build a pandas DataFrame of all skills with timestamp, name, location, and description."""
+    import pandas as pd
+
+    scan_date = inventory["scan_date"]
+    rows = []
+
+    # User-level skills
+    for skill in inventory.get("user_skills", []):
+        skill_path = skill["path"]
+        fm = parse_skill_frontmatter(skill_path)
+        location = skill.get("target", str(Path(skill_path).parent)) if skill.get("symlink") else str(Path(skill_path).parent)
+        # Shorten home dir for readability
+        location = location.replace(os.path.expanduser("~"), "~")
+        rows.append({
+            "scan_date": scan_date,
+            "skill": fm["name"] or skill["name"],
+            "scope": "user",
+            "location": location,
+            "description": fm["description"],
+        })
+
+    # Repo-level skills
+    for skill_info in inventory.get("skills_summary", []):
+        repo_name = skill_info["repo"]
+        skill_rel_path = skill_info["path"]
+
+        # Try to resolve full path for local scans to read frontmatter
+        description = ""
+        skill_name = skill_rel_path.split("/")[-2] if "/" in skill_rel_path else skill_rel_path
+
+        # Find the matching repo entry to get absolute path
+        for repo in inventory.get("repos", []):
+            if repo.get("name") == repo_name and repo.get("path"):
+                full_path = os.path.join(repo["path"], skill_rel_path)
+                fm = parse_skill_frontmatter(full_path)
+                if fm["name"]:
+                    skill_name = fm["name"]
+                description = fm["description"]
+                break
+
+        location = f"{repo_name}/{skill_rel_path}"
+        rows.append({
+            "scan_date": scan_date,
+            "skill": skill_name,
+            "scope": "project",
+            "location": location,
+            "description": description,
+        })
+
+    df = pd.DataFrame(rows, columns=["scan_date", "skill", "scope", "location", "description"])
+    return df
+
+
 def print_summary(inventory: dict):
     """Print a formatted summary of the inventory."""
     print("\n" + "=" * 70)
@@ -324,6 +400,7 @@ def main():
     parser.add_argument("--local", action="store_true", help="Scan local filesystem instead of GitHub API")
     parser.add_argument("--path", default=None, help="Local base path (default: ~/Documents/GitHub)")
     parser.add_argument("--output", "-o", default=None, help="Save JSON output to file")
+    parser.add_argument("--csv", default=None, help="Export skills DataFrame to CSV file")
     args = parser.parse_args()
 
     if args.local:
@@ -340,6 +417,24 @@ def main():
             inventory = scan_github(user=user)
 
     print_summary(inventory)
+
+    # Build and display skills DataFrame
+    try:
+        df = build_skills_dataframe(inventory)
+        if not df.empty:
+            print("\n" + "=" * 70)
+            print("SKILLS DATAFRAME")
+            print("=" * 70)
+            print(df.to_string(index=False))
+
+            if args.csv:
+                df.to_csv(args.csv, index=False)
+                print(f"\nCSV saved to {args.csv}")
+        else:
+            print("\nNo skills found for DataFrame output.")
+    except ImportError:
+        if args.csv:
+            print("\nWarning: pandas not installed. Cannot export CSV. Install with: pip install pandas")
 
     if args.output:
         with open(args.output, "w") as f:
