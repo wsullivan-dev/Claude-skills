@@ -1,3 +1,9 @@
+---
+name: pdf-to-ppt
+description: Convert Power BI PDF exports into Monthly Business Review (MBR) PowerPoint decks. Extracts dashboard visuals (charts, tables) from specific slides, saves as PNGs, and places them into an MBR template.
+argument-hint: [input-pdf-path]
+---
+
 # PDF to PPT Skill
 
 This skill converts Power BI PDF exports into Monthly Business Review (MBR) PowerPoint decks. It extracts large dashboard visuals (charts and tables) from specific "Slides" pages, saves the visuals as PNGs, and places them into an MBR template.
